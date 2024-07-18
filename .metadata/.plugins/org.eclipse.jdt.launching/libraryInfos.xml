@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<libraryInfos>
+    <libraryInfo home="C:\jdk1.8.0_111" version="1.8.0_111">
+        <bootpath>
+            <entry path="C:\jdk1.8.0_111\jre\lib\resources.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\lib\rt.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\lib\sunrsasign.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\lib\jsse.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\lib\jce.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\lib\charsets.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\lib\jfr.jar"/>
+            <entry path="C:\jdk1.8.0_111\jre\classes"/>
+        </bootpath>
+        <extensionDirs>
+            <entry path="C:\jdk1.8.0_111\jre\lib\ext"/>
+            <entry path="C:\Windows\Sun\Java\lib\ext"/>
+        </extensionDirs>
+        <endorsedDirs>
+            <entry path="C:\jdk1.8.0_111\jre\lib\endorsed"/>
+        </endorsedDirs>
+    </libraryInfo>
+    <libraryInfo home="C:\Users\Asus\.p2\pool\plugins\org.eclipse.justj.openjdk.hotspot.jre.full.win32.x86_64_22.0.1.v20240426-1149" version="22.0.1">
+        <bootpath>
+            <entry path="null"/>
+        </bootpath>
+        <extensionDirs>
+            <entry path="null"/>
+        </extensionDirs>
+        <endorsedDirs>
+            <entry path="null"/>
+        </endorsedDirs>
+    </libraryInfo>
+    <libraryInfo home="C:\Users\Asus\.p2\pool\plugins\org.eclipse.justj.openjdk.hotspot.jre.full.win32.x86_64_22.0.1.v20240426-1149\jre" version="22.0.1"/>
+</libraryInfos>
