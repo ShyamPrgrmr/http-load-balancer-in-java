@@ -17,6 +17,7 @@ import com.loadbalancer.app.enums.Constants;
 import com.loadbalancer.app.exceptions.MapActionNotAvailable;
 import com.loadbalancer.app.exceptions.NoUpstreamAvailableException;
 import com.loadbalancer.app.exceptions.UpstreamNotAvailable;
+import com.loadbalancer.app.helper.DataHelper;
 import com.loadbalancer.app.model.AppHTTPUpstream;
 import com.loadbalancer.app.struct.APPHTTPUpstreamHealthCheckMap;
 
@@ -32,10 +33,57 @@ public class HealthcheckMonitorThreadsRunner {
 	@Autowired 
 	APPHTTPUpstreamHealthCheckMap map; 
 	
+	@Value("${load.balancer.healthcheck.scheduler.interval}")
+	private String intervalS;
 	
+	@Value("${load.balancer.healthcheck.endpoint}")
+	private String endpoint; 
+	
+	@Value("${load.balancer.healthcheck.endpoint.timeout}")
+	private String timeout; 
+	
+	@Value("${load.balancer.healthcheck.initial.delay}")
+	private String initialDelay; 
+	
+	private int count = 0; 
 	private ExecutorService service; 
 
 	public HealthcheckMonitorThreadsRunner() {}
+	
+	public int getCountOfupstream() {
+		return count; 
+	}
+	
+	public void addUpstream(String newUpstream) {
+		this.upstream_list = "," + newUpstream;
+		count++;
+		reInitiate(); 
+	}
+	
+	public void removeUpstream(String upstream) {
+		List<String> list =  Arrays.asList(this.upstream_list.split(",")).stream().filter(up ->{
+			return up.equalsIgnoreCase(upstream); 
+		}).collect(Collectors.toList()); 
+		
+		this.upstream_list = "";  
+		
+		
+		this.count=1; 
+		list.forEach(item->{
+			if(count==1) this.upstream_list+=item; 
+			else this.upstream_list=","+item;
+			count++; 
+		});
+		
+		reInitiate(); 
+		
+	}
+	
+	//autoscalling
+	public void reInitiate() {
+		this.service.shutdownNow();
+		start(); 
+	}
 	
 	public void start() {
 		try {
@@ -43,23 +91,43 @@ public class HealthcheckMonitorThreadsRunner {
 			List<AppHTTPUpstream> upstreams = getUpstreams(); 
 			int size = upstreams.size(); 
 			this.service = Executors.newFixedThreadPool(size);
+			this.map.action(Constants.INITIATE_HC_MAP, upstream_list, true);
 			
 			getUpstreams().stream().forEach(upstream->{
 				try {
-					map.action(Constants.ADD_UPSTREAM, upstream.getAddress().toString(), true);
 					
-					System.out.println("Monitor Creates : "+upstream.getAddress().toString()); 
-					AppContext context = new AppContext(); 
-					APPHTTPUpstreamMonitor monitor = context.returnContext().getBean(APPHTTPUpstreamMonitor.class); 
-					monitor.initiate(upstream.getAddress().toString()); 
+					this.map.action(Constants.ADD_UPSTREAM, upstream.getAddress().toString(), true);
+					logger.info("Health check monitor created for : "+upstream.getAddress().toString()); 
+					//logger.info("MAP in Runner = "+this.map.hashCode());
+					
+					APPHTTPUpstreamMonitor monitor = new APPHTTPUpstreamMonitor(this.map, upstream.getAddress().toString(),
+																				this.endpoint, 
+																				DataHelper.StringToInt(intervalS), 
+																				DataHelper.StringToLong(timeout), 
+																				DataHelper.StringToInt(initialDelay),
+																				this.logger); 
+					
 					this.service.submit(monitor); 
+					
+					
+					
+					//monitor.checker(); 
+					
 				} catch (MapActionNotAvailable | UpstreamNotAvailable e) {
 					logger.error(e);
 				} 
 			});
+			
+			//logger.info("Current Upstream Status : "+ this.map.toString()); 
 
 		} catch (NoUpstreamAvailableException e) {
 			logger.error(e);
+		} catch (MapActionNotAvailable e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (UpstreamNotAvailable e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
 		}
 	}
 	
@@ -67,9 +135,10 @@ public class HealthcheckMonitorThreadsRunner {
 		if(upstream_list== null) {
 			throw new NoUpstreamAvailableException(); 
 		}
-		
+		this.count=1; 
 		List<AppHTTPUpstream> list =  Arrays.asList(( this.upstream_list.split(","))).stream().map(item->   {
 			try {
+				count++;
 				return new AppHTTPUpstream(item.trim());
 			} catch (MalformedURLException e) {
 				logger.error(e); 

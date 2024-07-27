@@ -17,8 +17,15 @@ public class AppHTTPRequest {
 	private String senderIP; 
 	private HttpExchange exchange; 
 	private String protocol; 
+	private String sessionId; 
 	
 	
+	public String getSessionId() {
+		return sessionId;
+	}
+	public void setSessionId(String sessionId) {
+		this.sessionId = sessionId;
+	}
 	public String getProtocol() {
 		return protocol;
 	}

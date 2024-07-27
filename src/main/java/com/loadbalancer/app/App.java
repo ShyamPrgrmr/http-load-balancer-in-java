@@ -20,15 +20,13 @@ public class App {
 		HealthcheckMonitorThreadsRunner hcm = context.getBean(HealthcheckMonitorThreadsRunner.class); 
 		hcm.start();
 		
-		
-		/*
 		AcceptorThreadRunner runner = new AcceptorThreadRunner(context.getBean(AppHTTPAcceptor.class)); 
 		runner.run();
 		
 		WorkerThreadRunner wRunner = context.getBean(WorkerThreadRunner.class); 
 		wRunner.initiate();
 		wRunner.run(); 
-		*/
+		
 	}
 
 }

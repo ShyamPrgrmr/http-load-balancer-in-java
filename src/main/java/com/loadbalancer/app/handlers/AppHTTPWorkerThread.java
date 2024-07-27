@@ -11,6 +11,7 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.HashMap;
 import org.apache.logging.log4j.Logger;
 import com.loadbalancer.app.enums.AppHTTPMethod;
@@ -32,11 +33,13 @@ public class AppHTTPWorkerThread implements Runnable {
 	HttpRequest.Builder build; 
 	
 	private AppHTTPUpstreamRequest request; 
+	private Duration timeout; 
 	
-	public AppHTTPWorkerThread(AppHTTPUpstreamRequest request, String contextPath, Logger logger){
+	public AppHTTPWorkerThread(AppHTTPUpstreamRequest request, String contextPath, Logger logger, Duration timeout){
 		this.request=request; 
 		this.lbContextpath=contextPath; 
 		this.logger = logger; 
+		this.timeout=timeout; 
 	}
 	
 
@@ -74,16 +77,34 @@ public class AppHTTPWorkerThread implements Runnable {
 			
 			//build = build.version(a_request.getProtocol())  //backlog
 			
+			build = build.timeout(this.timeout); 
+			
 			req = build.build();
 			
 			//System.out.println(HttpRequest.BodyPublishers.ofString("hellow")); 
 			
-			HttpResponse<String> res = HttpClient.newBuilder()
-					  .build()
-					  .send(req, HttpResponse.BodyHandlers.ofString());
+			HttpResponse<String> res = null;
+			
+			
+			try {
+				res = HttpClient.newBuilder()
+						  .build()
+						  .send(req, HttpResponse.BodyHandlers.ofString());
+			}catch(Exception e) {
+				String response = "Unavailable 503 : Upstream unavailable"; 
+				logger.info(" (OUT) "+a_request.getRequestID()+" : "+a_request.getMethod()+" "+a_request.getUrl()+" "+a_request.getProtocol()+" "+503);
+				try {
+					a_request.getExchange().sendResponseHeaders(503, response.length());
+					OutputStream os = a_request.getExchange().getResponseBody();
+					os.write(response.getBytes());
+		            os.close();
+				} catch (IOException e1) {
+					logger.error(e1.getStackTrace());
+				}
+				return; 
+			}
 			
 			HttpHeaders res_heders = res.headers(); 
-			
 			 
 			if(res.statusCode()<399)
 			{
@@ -114,13 +135,18 @@ public class AppHTTPWorkerThread implements Runnable {
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+		} catch(Exception e) {
+			String response = "Unavailable 503 : Resource Exhasted"; 
+			logger.info(" (OUT) "+a_request.getRequestID()+" : "+a_request.getMethod()+" "+a_request.getUrl()+" "+a_request.getProtocol()+" "+503);
+			try {
+				a_request.getExchange().sendResponseHeaders(503, response.length());
+				OutputStream os = a_request.getExchange().getResponseBody();
+				os.write(response.getBytes());
+	            os.close();
+			} catch (IOException e1) {
+				logger.error(e1.getStackTrace());
+			}
 		}
-		
-		
-	
 	}
 	
 	

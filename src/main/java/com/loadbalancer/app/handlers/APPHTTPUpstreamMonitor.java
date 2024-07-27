@@ -1,19 +1,13 @@
 package com.loadbalancer.app.handlers;
 
-import java.io.IOException;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
-
 import com.loadbalancer.app.enums.Constants;
 import com.loadbalancer.app.exceptions.MapActionNotAvailable;
 import com.loadbalancer.app.exceptions.UpstreamNotAvailable;
@@ -21,47 +15,40 @@ import com.loadbalancer.app.helper.HttpRequestE;
 import com.loadbalancer.app.struct.APPHTTPUpstreamHealthCheckMap;
 
 
-@Component
-@Scope("prototype")
 public class APPHTTPUpstreamMonitor implements Runnable {
 	
 	private Boolean localStatus=true; 
-	
 	private String upstream; 
-	
-	@Value("${load.balancer.healthcheck.scheduler.interval}")
-	private String intervalS;
-	
-	@Value("${load.balancer.healthcheck.endpoint}")
+	private int interval;
 	private String endpoint; 
-	
-	@Value("${load.balancer.healthcheck.endpoint.timeout}")
-	private String timeout; 
-	
-	@Value("${load.balancer.healthcheck.initial.delay}")
-	private String initialDelay; 
-	
-	@Autowired
+	private long timeout; 
+	private int initialDelay; 
 	private APPHTTPUpstreamHealthCheckMap map; 
+	private Logger logger; 
 	
-	@Autowired 
-	Logger logger;
-	
-	public APPHTTPUpstreamMonitor() {}
-	
-	public void initiate(String upstream){
+	public APPHTTPUpstreamMonitor(APPHTTPUpstreamHealthCheckMap map, String upstream, String endpoint, int interval, long timeout, int initialDelay, Logger logger){
+		this.map = map; 
 		this.upstream=upstream; 
+		this.interval=interval; 
+		this.endpoint=endpoint; 
+		this.timeout=timeout;
+		this.initialDelay=initialDelay; 
+		this.logger = logger; 
 	}
+	
+	//to be removed
+	public void checker() {
+		logger.info("MAP in Thread = "+this.map.hashCode());
+		logger.info(this.map.toString()); 
+	}
+	
 
 	@Override
 	public void run() {
 		
 		//blocking thread for initial delay
-		
-		
-		
 		try {
-			Thread.sleep((long) Long.parseLong(initialDelay.trim()));
+			Thread.sleep(this.initialDelay);
 		} catch (NumberFormatException | InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -70,41 +57,58 @@ public class APPHTTPUpstreamMonitor implements Runnable {
 		while(true){
 			try {
 				HttpRequest req = new HttpRequestE(); 		
-				HttpRequest.Builder build = req.newBuilder( new URI(upstream+endpoint)).GET().timeout(Duration.ofMillis((long) Long.parseLong(timeout.trim()))); 	
+				HttpRequest.Builder build = req.newBuilder( new URI(upstream+endpoint)).GET().timeout(Duration.ofMillis(this.timeout)); 	
 				req = build.build();
 				
-				HttpResponse<String> res = HttpClient.newBuilder()
-						  .build()
-						  .send(req, HttpResponse.BodyHandlers.ofString());
 				
-				if(res.statusCode()>=200 || res.statusCode()<=299) {
-					logger.info("(OUT) "+upstream+endpoint+" "+res.statusCode()); 
-					if(!localStatus) {
-						this.localStatus=!this.localStatus; 
-						map.action(Constants.UPDATE_UPSTREAM_STATUS, this.upstream, this.localStatus); 
-						logger.info(upstream + " is UP. MONITOR STATUS GREEN"); 
-					}
-				}else {
+				try {
+					HttpResponse<String> res = HttpClient.newBuilder()
+							  .build()
+							  .send(req, HttpResponse.BodyHandlers.ofString());
+					
+					if(res.statusCode()>=200 || res.statusCode()<=299) {
+						//logger.info("(OUT) "+upstream+endpoint+" "+res.statusCode()); 
+						
+						//red to green if red
+						if(!localStatus) {
+							this.localStatus=!this.localStatus; 
+							map.action(Constants.UPDATE_UPSTREAM_STATUS, this.upstream, this.localStatus); 
+							logger.info(upstream + " is UP. MONITOR STATUS GREEN"); 
+						}
+					}else {
+						
+						//green to red if green
+						if(localStatus) {
+							this.localStatus=!this.localStatus; 
+							map.action(Constants.UPDATE_UPSTREAM_STATUS, this.upstream, this.localStatus);
+							logger.info(upstream + " is DOWN. MONITOR STATUS RED");
+						}
+					}	
+				}catch(Exception e) {
 					if(localStatus) {
-						this.localStatus=!this.localStatus; 
-						map.action(Constants.UPDATE_UPSTREAM_STATUS, this.upstream, this.localStatus);
-						logger.info(upstream + " is DOWN. MONITOR STATUS RED");
+						try {
+							this.localStatus=!this.localStatus; 
+							map.action(Constants.UPDATE_UPSTREAM_STATUS, this.upstream, this.localStatus);
+							logger.info(upstream + " is DOWN. MONITOR STATUS RED");
+						} catch (MapActionNotAvailable | UpstreamNotAvailable e1) {
+							logger.error(e);
+							e.printStackTrace();
+						}
 					}
 				}
-				
-				Thread.sleep((int) Integer.parseInt(intervalS));
-			} catch (NumberFormatException | InterruptedException | IOException | URISyntaxException | MapActionNotAvailable | UpstreamNotAvailable e) {
+
+				Thread.sleep(this.interval);
+			} catch (NumberFormatException | InterruptedException | URISyntaxException e) {
 				try {
-					e.printStackTrace();
-					logger.error(e); 
+					logger.error(e.getStackTrace());
 					if(localStatus) {
 						this.localStatus=!this.localStatus; 
 						map.action(Constants.UPDATE_UPSTREAM_STATUS, this.upstream, this.localStatus);
 						logger.info(upstream + " is DOWN. MONITOR STATUS RED");
 					}
-					Thread.sleep((int) Integer.parseInt(intervalS));
+					Thread.sleep(this.interval);
 				} catch (NumberFormatException | InterruptedException | MapActionNotAvailable | UpstreamNotAvailable e1) {
-					logger.error(e); 
+					logger.error(e.getStackTrace());
 				}
 			}
 		}
