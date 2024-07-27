@@ -9,23 +9,12 @@ import java.net.URISyntaxException;
 
 import java.net.http.HttpHeaders;
 import java.net.http.HttpClient;
-import java.net.http.HttpClient.Version;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-
 import org.apache.logging.log4j.Logger;
-
 import com.loadbalancer.app.enums.AppHTTPMethod;
+import com.loadbalancer.app.helper.HttpRequestE;
 import com.loadbalancer.app.model.AppHTTPRequest;
 import com.loadbalancer.app.model.AppHTTPUpstream;
 import com.loadbalancer.app.model.AppHTTPUpstreamRequest;
@@ -79,9 +68,11 @@ public class AppHTTPWorkerThread implements Runnable {
 			});
 		
 			
+			build = build.setHeader("request_id", a_request.getRequestID());
+			
 			build = getBuilderMethod(build, a_request);
 			
-			
+			//build = build.version(a_request.getProtocol())  //backlog
 			
 			req = build.build();
 			
@@ -177,58 +168,4 @@ public class AppHTTPWorkerThread implements Runnable {
 		}
 	}
 	
-	
-	
-	public class HttpRequestE extends HttpRequest{
-		
-		HttpRequestE(){
-			super(); 
-		}
-		
-		
-		public String toString(){
-			return this.headers().toString();
-		}
-
-		@Override
-		public Optional<BodyPublisher> bodyPublisher() {
-			return Optional.empty();
-		}
-
-		@Override
-		public String method() {
-			return null;
-		}
-
-		@Override
-		public Optional<Duration> timeout() {
-			return Optional.empty();
-		}
-
-		@Override
-		public boolean expectContinue() {
-			return false;
-		}
-
-		@Override
-		public URI uri() {
-			return null;
-		}
-
-		@Override
-		public Optional<Version> version() {
-			return Optional.empty();
-		}
-
-		@Override
-		public HttpHeaders headers() {
-			return null;
-		}
-	}
-	
-	
-	
-
-	
-
 }

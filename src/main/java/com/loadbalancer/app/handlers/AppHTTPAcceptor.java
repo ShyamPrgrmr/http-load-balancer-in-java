@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 import com.loadbalancer.app.model.AppHTTPBody;
 import com.loadbalancer.app.model.AppHTTPHeaders;
 import com.loadbalancer.app.model.AppHTTPRequest;
+import com.loadbalancer.app.struct.AppHTTPRequestQueue;
 import com.loadbalancer.app.enums.AppHTTPMethod;
 import com.loadbalancer.app.exceptions.QueueIsFullException;
 import com.sun.net.httpserver.Headers;
@@ -49,6 +50,11 @@ public class AppHTTPAcceptor {
 	@Value("${load.balancer.acceptor.threads.count}")
 	String thread_count; 
 	
+	@Value("${load.balancer.request.payload.size}")
+	String request_payload_size_s; 
+	
+	private int request_payload_size;  
+	
 	@Autowired
 	Logger logger; 
 	
@@ -62,6 +68,7 @@ public class AppHTTPAcceptor {
 	public void initiate() {	
 		try {
 			
+			request_payload_size = (int) Integer.parseInt(request_payload_size_s.trim()); 
 			int port_int = (int) Integer.parseInt(port); 
 			int thread_count_int = (int) Integer.parseInt(thread_count); 
 			
@@ -122,7 +129,8 @@ public class AppHTTPAcceptor {
 			
 			HashMap<String, String> map = appHTTPHeaders.getMap(); 
 			
-			String request_id = map.containsKey("Request_id") ? map.get("Request_id") : (System.currentTimeMillis())+""+(new Random().nextGaussian())+"@REQ"; 
+			String request_id = map.containsKey("request_id") ? map.get("Request_id") : (System.currentTimeMillis())+""+(new Random().nextGaussian())+"@REQ"; 
+			
 			if(request_id!=null) {
 				request.setRequestID(request_id);
 			}
@@ -171,8 +179,10 @@ public class AppHTTPAcceptor {
 			
 				BufferedReader br = new BufferedReader(isr);
 				
+				
+				
 				int b;
-	            StringBuilder buf = new StringBuilder(512);
+	            StringBuilder buf = new StringBuilder(request_payload_size);
 	            while ((b = br.read()) != -1) {
 	                buf.append((char) b);
 	            }

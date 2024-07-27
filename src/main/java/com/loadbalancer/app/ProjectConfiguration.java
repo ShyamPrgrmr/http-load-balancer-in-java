@@ -30,4 +30,5 @@ public class ProjectConfiguration {
 		return LogManager.getLogger(App.class);
 	}
 	
+	
 }

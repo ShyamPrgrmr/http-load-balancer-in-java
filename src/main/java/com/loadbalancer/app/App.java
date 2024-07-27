@@ -2,9 +2,9 @@ package com.loadbalancer.app;
 
 import com.loadbalancer.app.handlers.AcceptorThreadRunner;
 import com.loadbalancer.app.handlers.AppHTTPAcceptor;
-import com.loadbalancer.app.handlers.AppHTTPRequestQueue;
+import com.loadbalancer.app.handlers.HealthcheckMonitorThreadsRunner;
 import com.loadbalancer.app.handlers.WorkerThreadRunner;
-
+import com.loadbalancer.app.struct.AppHTTPRequestQueue;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
@@ -17,15 +17,18 @@ public class App {
 		AppHTTPRequestQueue queue = context.getBean(AppHTTPRequestQueue.class); 		
 		queue.intiate(queueSize);	
 	
+		HealthcheckMonitorThreadsRunner hcm = context.getBean(HealthcheckMonitorThreadsRunner.class); 
+		hcm.start();
 		
+		
+		/*
 		AcceptorThreadRunner runner = new AcceptorThreadRunner(context.getBean(AppHTTPAcceptor.class)); 
 		runner.run();
-		
 		
 		WorkerThreadRunner wRunner = context.getBean(WorkerThreadRunner.class); 
 		wRunner.initiate();
 		wRunner.run(); 
-		
+		*/
 	}
 
 }

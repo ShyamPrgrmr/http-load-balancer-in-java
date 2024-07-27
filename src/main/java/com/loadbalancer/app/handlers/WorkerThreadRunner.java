@@ -9,6 +9,7 @@ import com.loadbalancer.app.exceptions.QueueIsEmptyException;
 import com.loadbalancer.app.interfaces.AppLoadBalancerMethod;
 import com.loadbalancer.app.model.AppHTTPRequest;
 import com.loadbalancer.app.model.AppHTTPUpstreamRequest;
+import com.loadbalancer.app.struct.AppHTTPRequestQueue;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
