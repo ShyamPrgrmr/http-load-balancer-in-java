@@ -62,6 +62,9 @@ public class DataHelper {
 		else return list;
 	}
 	
+	public static int randomIntBetween(int i, int j) {
+		return  random.nextInt(i, j); 
+	}
 	
 	public static String randomSessionID() { 
 		return DataHelper.getSaltString();
@@ -89,11 +92,11 @@ public class DataHelper {
 	}
 	
 	private static int multiplication(String str) {
-		int addition=1; 
+		int multiplication=1; 
 		for(int i : str.chars().toArray()) {
-			addition*=i; 
+			multiplication*=i; 
 		}
-		return addition; 
+		return multiplication; 
 	}
 	
 	public static int hashFunction(String ip, String session_id) {

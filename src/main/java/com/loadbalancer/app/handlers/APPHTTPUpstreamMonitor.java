@@ -38,14 +38,14 @@ public class APPHTTPUpstreamMonitor implements Runnable {
 	
 	//to be removed
 	public void checker() {
-		logger.info("MAP in Thread = "+this.map.hashCode());
+		logger.info("MAP in Monitor Thread = "+this.map.hashCode());
 		logger.info(this.map.toString()); 
 	}
 	
 
 	@Override
 	public void run() {
-		
+		//checker(); 
 		//blocking thread for initial delay
 		try {
 			Thread.sleep(this.initialDelay);
@@ -56,6 +56,7 @@ public class APPHTTPUpstreamMonitor implements Runnable {
 		logger.info("Health check monitor started for ----> " + upstream + endpoint);
 		while(true){
 			try {
+				
 				HttpRequest req = new HttpRequestE(); 		
 				HttpRequest.Builder build = req.newBuilder( new URI(upstream+endpoint)).GET().timeout(Duration.ofMillis(this.timeout)); 	
 				req = build.build();

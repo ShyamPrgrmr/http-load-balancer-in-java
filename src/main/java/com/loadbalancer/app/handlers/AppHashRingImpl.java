@@ -12,6 +12,8 @@ import com.loadbalancer.app.model.AppHTTPUpstream;
 public class AppHashRingImpl implements AppHashRing {
 	
 	private int ring[];
+	
+	//this map will store location in ring and cursponding upstream object. 
 	private Map<Integer, AppHTTPUpstream> upstreamMap; 
 	
 	
@@ -32,7 +34,7 @@ public class AppHashRingImpl implements AppHashRing {
 		 
 	}
 	
-	
+	//This method will recursively get called unless it gets the position in ring where upstream is available. It has feature for fail safe. 
 	public int place(int retry, int hashVal, int fail) {
 		
 		if(hashVal>=this.ringSize) {
@@ -70,8 +72,19 @@ public class AppHashRingImpl implements AppHashRing {
 	}
 
 	@Override
-	public boolean removeUpstream(AppHTTPUpstream upstream) {
-		return false;
+	public boolean removeUpstream(String upstream) {
+		int loc=0; 
+		for(Integer ups : this.upstreamMap.keySet()){
+			if(this.upstreamMap.get(ups).getAddress().toString().equalsIgnoreCase(upstream)) loc=ups; 
+		}
+		
+		if(this.upstreamMap.containsKey(loc) && this.ring.length>loc) {
+			this.ring[loc] = 0; 
+		}else {
+			return false; 
+		}
+		
+		return true; 
 	}
 
 	//after performing hashing on session_id get location returned by hashing function and check next location in ring where Integer.Max is set. 
@@ -83,7 +96,7 @@ public class AppHashRingImpl implements AppHashRing {
 		
 		int hashVal = DataHelper.hashFunction(ip, session_id) % this.ringSize ; 
 		
-		//System.out.println("hashVal : "+ hashVal); 
+		hashVal = hashVal<0 ? hashVal*(-1) : hashVal; 
 		
 		int retries = 0; 
 		

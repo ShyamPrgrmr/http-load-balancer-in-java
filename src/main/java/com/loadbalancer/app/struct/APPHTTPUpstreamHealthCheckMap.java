@@ -1,6 +1,6 @@
 package com.loadbalancer.app.struct;
 import java.util.HashMap;
-import java.util.Observable;
+
 import java.util.concurrent.SubmissionPublisher;
 
 import org.springframework.context.annotation.Scope;

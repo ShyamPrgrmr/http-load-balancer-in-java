@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import com.loadbalancer.app.enums.AppLoadBalancerAlgorithms;
 import com.loadbalancer.app.exceptions.IssueWhileAddingInIPHash;
+import com.loadbalancer.app.exceptions.ListHasDuplicatesException;
 import com.loadbalancer.app.exceptions.ListHasNullValues;
 import com.loadbalancer.app.exceptions.NoUpstreamAvailableException;
 import com.loadbalancer.app.exceptions.PercentageIsnotMultipleOf25OrMoreThanHundreadOrAddtionIsNot100;
@@ -57,10 +58,10 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 	@Value("${load.balancer.upstream.backup.server.list}")
 	String upstream_backup_list;  
 	
-	@Value("${load.balancer.algorithm.hashring.length}")
+	@Value("${load.balancer.algorithm.hash.ring.length}")
 	private String ringSizeS;
 	
-	@Value("${load.balancer.algorithm.hashring.failover.if.upstream.failing}")
+	@Value("${load.balancer.algorithm.hash.ring.failover.if.upstream.failing}")
 	private String ipHashFailover; 
 	
 	private AppHashRingImpl ipHash; 
@@ -96,16 +97,25 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 	//pass true for random algorithm 
 	private AppHTTPUpstream failoverORRR(int in,boolean check) {
 		int retries=0; 
+		
+		//if random check is false than take the RR index otherwise random index
 		int index =  !check ? this.getRounRobinIndex() : in; 
 		String prev= ""; 
 		while(true) {
 			
+			
+			//FAIL SAFE --> match if count of retries == upstreamlength to avoid infinite loop
+			//if retry count is equal to upstream list length than check if backup upstream is available
 			if(retries==this.upstreamListlength) {
 				
+
+				//if backup upstream is not available then request cannot be served. 
 				if(this.backupUpstreamListLength==0) {
 					logger.info("***None of the upstreams are available***");
 					return this.upstreams.get(index);
 				}	
+				
+				//check next backup upstream at random position (0,backupUpstreamListlength-1) 
 				else {
 					AppHTTPUpstream up = this.backupUpstreams.get(this.random.nextInt(0, this.backupUpstreamListLength));
 					logger.info("***None of the upstreams are available, trying random backup upstreams ---> "+up.getAddress()+"***");
@@ -113,16 +123,32 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 				}
 			}
 			
-			if( this.getUpstreamStatus(this.upstreams.get(index).getAddress().toString()) ) {
-				prev=this.upstreams.get(index).getAddress().toString();
-				break; 
-			}else {
-				retries++;
-				if(!prev.equals( this.upstreams.get(index).getAddress().toString()))
-					logger.info("Upstream "+this.upstreams.get(index).getAddress().toString()+" is down, trying next available upstream");
-				prev=this.upstreams.get(index).getAddress().toString();
-				index=this.getRounRobinIndex(); 
+			//if upstream is up then assign upstream to the request
+			//adding try catch due to autoscaling issue 
+			try {
+				if( this.getUpstreamStatus(this.upstreams.get(index).getAddress().toString()) ) {
+					prev=this.upstreams.get(index).getAddress().toString();
+					break; 
+				}else {
+					retries++;
+					if(!prev.equals( this.upstreams.get(index).getAddress().toString()))
+						logger.info("Upstream "+this.upstreams.get(index).getAddress().toString()+" is down, trying next available upstream");
+					prev=this.upstreams.get(index).getAddress().toString();
+					index=this.getRounRobinIndex(); 
+				}
+			}catch(IndexOutOfBoundsException ioe) {
+				if( this.getUpstreamStatus(this.upstreams.get(index-1).getAddress().toString()) ) {
+					prev=this.upstreams.get(index).getAddress().toString();
+					break; 
+				}else {
+					retries++;
+					if(!prev.equals( this.upstreams.get(index).getAddress().toString()))
+						logger.info("Upstream "+this.upstreams.get(index).getAddress().toString()+" is down, trying next available upstream");
+					prev=this.upstreams.get(index).getAddress().toString();
+					index=this.getRounRobinIndex(); 
+				}
 			}
+			
 		}
 		return this.upstreams.get(index); 
 	}
@@ -195,13 +221,20 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 	
 	private void initializeAlgorithms() {
 		
+		//checker(); 
+		
 		switch(this.appLoadBalancerAlgorithm){
 			case ROUNDS_ROBIN:{
 				roundsRobin(); 
 				break; 
 			}
 			case WEIGHTED_ROUNDS_ROBIN:{
-				weightedRoundsRobin();
+				try {
+					weightedRoundsRobin();
+					
+				} catch (ListHasDuplicatesException e) {
+					e.printStackTrace();
+				}
 				break; 
 			}
 			case RANDOM:{
@@ -246,15 +279,16 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 	
 	
 	//Aim is to create list from weighted rounds robin and by using rounds robin method to return upstream to getUpstream method. 
-	//using percentage like 75% 20%
-	//we need to get exact length of upstream list and count = length*percentage/100, where count is number of time we are going add it. 
-	//we can't have upstream with less than 25%. -- there should be some restriction to add 0%,25%,50%,75%,100% 
-	//this method will check and set this.upstreams with weighted upstream list
-	private void weightedRoundsRobin() {
+	//this method will place upstreams in 100 positions based on the percentages 
+	//it uses map to maintain count of each upstream. every time upstream added in list count is reduced in map
+	//if the list contains duplicates then it will throw exception
+	private void weightedRoundsRobin() throws ListHasDuplicatesException {
 		try {
 			List<AppHTTPUpstream> list = DataHelper.getUpstreams(upstream_list, ",");
 			List<Integer> weights = DataHelper.stringListSpliterToINTList(this.weightedRRSplitPercentages, ","); 
-			int count = 0; 
+			HashMap<String, Integer> helperMap = new HashMap<String, Integer>(); 
+			
+			
 			if(list.size()<=weights.size()) {
 				
 				if(this.upstreams==null) this.upstreams = new ArrayList<AppHTTPUpstream>(); 
@@ -266,21 +300,65 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 				} 
 				if(addition>100 || addition<100) throw new PercentageIsnotMultipleOf25OrMoreThanHundreadOrAddtionIsNot100(); 
 				
-				int size = list.size(); 
 				
+				//adding upstream and there percentage in map
+				int t =0; 
+				for(AppHTTPUpstream ups : list) {
+					helperMap.put(ups.getAddress().toString(), weights.get(t));
+					
+					logger.info("Traffic distribution "+ ups.getAddress().toString()+" "+ weights.get(t)+"%"); 
+					t++; 
+				}
+				
+				int count = 0; 
+				int arrIndex = 0; 
+				int size = list.size(); 
+				int retries=0; 
+				
+				//placing all upstream in 100 positions. 
+				while(count!=100) {
+					int per = helperMap.get(list.get(arrIndex).getAddress().toString());
+					if(per==0) {
+						retries++; 
+						arrIndex++; 
+						
+						if(retries==((size)*100)) {
+							throw new ListHasDuplicatesException(); 
+						}
+						
+						if(size == arrIndex) arrIndex=0;
+						continue; 
+					}
+					
+					AppHTTPUpstream tempUps = list.get(arrIndex); 
+					this.upstreams.add(tempUps); 
+					helperMap.put(tempUps.getAddress().toString(),per-1); 
+					count++;
+					retries=0;
+					arrIndex++; 
+					if(size == arrIndex) arrIndex=0;
+				}
+				
+				logger.info("Final Upstream traffic distribution based on % : " + this.upstreams); 
+				
+				/*
 				for(AppHTTPUpstream ups : list) {
 					
-					int cnt = ((size*size)*(weights.get(count)))  /100; 
 					
+					//square method will not work in small percentage
+					//int cnt = ((size*size)*(weights.get(count)))  /100; 
+					
+					
+					//defining 100 position arraylist and 1%=1loc in list. 
+					int cnt = weights.get(count); 
+				
 					while(cnt!=0){
 						this.upstreams.add(ups); 
 						cnt--; 
 					}
 					count++; 
-				}
-				
-				
-				
+				}*/
+					
 			}else {
 				throw new WeightedRoundsRobinPercentageNotMatchingWithList(this.upstream_list, this.weightedRRSplitPercentages, list.size(), weights.size()); 
 			}
@@ -311,7 +389,7 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 		logger.info("Selected load balancing algorithm : "+this.appLoadBalancerAlgorithm);
 		initializeAlgorithms(); 
 		this.upstreamListlength = this.upstreams.size();
-		
+		logger.info("Upstream List Length : "+this.upstreamListlength);
 	}
 	
 	private AppLoadBalancerAlgorithms getAlgrithm() {
@@ -345,7 +423,7 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 		return list;
 	}
 	
-	/*Initialization Logic End*/	
+	/*Initialization Logic end*/	
 	
 	
 	/*Autoscaling and pubsub logic start*/	
@@ -353,29 +431,53 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 	
 	//autoscaling
 	private void addUpstream(String newUpstream) {
-		this.upstream_list = "," + newUpstream;
-		upstreamListlength++;
-		reInitiate(); 
+		try {
+			if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.ROUNDS_ROBIN) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.RANDOM)) {
+				upstreamListlength++;
+				this.upstreams.add(new AppHTTPUpstream(newUpstream));
+				logger.info("(SCALE UP) "+this.getClass().getCanonicalName()+" Upstream Added from algorithm "+this.appLoadBalancerAlgorithm);
+				//System.out.println(this.upstreams); 
+			}else if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.IP_HASHING_AUTOSCALLING)) {
+				logger.info("(SCALE UP) "+this.getClass().getCanonicalName()+" Upstream Added from algorithm "+this.appLoadBalancerAlgorithm);
+				this.ipHash.addUpstream(new AppHTTPUpstream(newUpstream)); 
+			}
+			
+		} catch (MalformedURLException e) {
+			upstreamListlength--; 
+			e.printStackTrace();
+		} 
 	}
 	
 	//autoscaling
 	private void removeUpstream(String upstream) {
-		List<String> list =  Arrays.asList(this.upstream_list.split(",")).stream().filter(up ->{
-			return up.equalsIgnoreCase(upstream); 
-		}).collect(Collectors.toList()); 
-		this.upstream_list = "";  
-		this.upstreamListlength=1; 
-		list.forEach(item->{
-			if(upstreamListlength==1) this.upstream_list+=item; 
-			else this.upstream_list=","+item;
-			upstreamListlength++; 
-		});
-		reInitiate(); 
+		--this.upstreamListlength; 
+		if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.ROUNDS_ROBIN) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.RANDOM)) {
+			int pos = 0; 
+			for(AppHTTPUpstream upstrm : this.upstreams) {
+				if(upstrm.getAddress().toString().equalsIgnoreCase(upstream)) {
+					break;  
+				}
+				pos++; 
+			}
+			
+			if(this.upstreams.get(pos).getAddress().toString().equalsIgnoreCase(upstream.trim())) { 
+				this.upstreams.remove(pos); 
+				logger.info("(SCALE DOWN) "+this.getClass().getCanonicalName()+" "+upstream+" Removed from algorithm "+this.appLoadBalancerAlgorithm); 
+			}else {
+				logger.error("Error in removing upstream in "+this.appLoadBalancerAlgorithm); 
+			}
+			
+		}else if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.IP_HASHING_AUTOSCALLING)) {
+			if(ipHash.removeUpstream(upstream)) logger.info("(SCALE DOWN) "+this.getClass().getCanonicalName()+" Upstream Removed from algorithm "+this.appLoadBalancerAlgorithm); 
+			else logger.error("Error in removing upstream in "+this.appLoadBalancerAlgorithm); 
+		}
 	}
 	
 	//autoscalling
 	private void reInitiate() {
-		setLoadBalancerAlgorithm(); 
+		//reintiate algorithm only if algorithm is RR or IP_Hashing or Random 
+		if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.ROUNDS_ROBIN) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.RANDOM) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.IP_HASHING_AUTOSCALLING))
+			setLoadBalancerAlgorithm(); 
 	}
 	
 
@@ -385,22 +487,30 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
         subscription.request(1);
 	}
 	
+	
+	//adding and deleting upstream only if algorithm is RR or IP_Hashing or Random 
+	
 	@Override
 	public void onNext(UpstreamEvent item) {
 		switch(item.getUpstreamEventType()){
 			case UPSTREAM_HC_CHANGED:{
 				this.healthStatusChanged(item);
-				subscription.request(1);
+				subscription.request(2);
 				return;
 			}
 			case UPSTREAM_REMOVED:{
-				this.removeUpstream(item.getUpstream());
-				subscription.request(1);
+				//System.out.println("Remove Request Recevied"); 
+				
+				if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.ROUNDS_ROBIN) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.RANDOM) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.IP_HASHING_AUTOSCALLING))
+					this.removeUpstream(item.getUpstream());
+				
+				subscription.request(2);
 				return;
 			}
 			case UPSTREAM_ADDED:{
-				this.addUpstream(item.getUpstream()); 
-				subscription.request(1);
+				if(this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.ROUNDS_ROBIN) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.RANDOM) || this.appLoadBalancerAlgorithm.equals(AppLoadBalancerAlgorithms.IP_HASHING_AUTOSCALLING))
+					this.addUpstream(item.getUpstream()); 
+				subscription.request(2);
 				return; 
 			}
 		}
@@ -416,11 +526,12 @@ public class AppLoadBalancerMethodImpl implements AppLoadBalancerMethod, Subscri
 	
 	
 	private void healthStatusChanged(UpstreamEvent item) {
+		//assigning all values of map into local hashmap
 		this.localHcMap = this.hcMap.getHashMap(); 
 		String status = this.localHcMap.get(item.getUpstream())? "UP" : "DOWN";  
 		//logger.info("Upstream : "+item.getUpstream()+" is "+status+" for taking a traffic");
 	}
 
 	
-	/*Autoscaling and pubsub logic start*/		
+	/*Autoscaling and pubsub logic end*/		
 }

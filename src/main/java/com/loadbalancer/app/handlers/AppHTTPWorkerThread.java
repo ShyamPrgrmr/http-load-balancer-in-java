@@ -49,6 +49,8 @@ public class AppHTTPWorkerThread implements Runnable {
 		AppHTTPRequest a_request = request.getRequest(); 
 		AppHTTPUpstream upstream = request.getUpstream();
 		
+		//System.out.println("Called upstream : "+ upstream.getAddress().toString());
+		
 		try {
 			//public URI(String scheme, String host, String path, String fragment)
 			

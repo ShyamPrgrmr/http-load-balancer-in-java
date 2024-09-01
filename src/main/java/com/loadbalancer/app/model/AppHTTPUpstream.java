@@ -14,7 +14,9 @@ public class AppHTTPUpstream {
 	public AppHTTPUpstream(String address) throws MalformedURLException {
 		this.address= new URL(address);
 		this.ip = this.address.getHost(); 
-		this.port = new String(this.address.getPort()+""); 
+		try {
+			this.port = new String(this.address.getPort()+""); 
+		}catch(Exception e) {}
 		this.protocol = this.address.getProtocol(); 
 	}
 	

@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
@@ -19,10 +21,11 @@ import com.loadbalancer.app.exceptions.NoUpstreamAvailableException;
 import com.loadbalancer.app.exceptions.UpstreamNotAvailable;
 import com.loadbalancer.app.helper.DataHelper;
 import com.loadbalancer.app.model.AppHTTPUpstream;
+import com.loadbalancer.app.model.UpstreamEvent;
 import com.loadbalancer.app.struct.APPHTTPUpstreamHealthCheckMap;
 
 @Component
-public class HealthcheckMonitorThreadsRunner {
+public class HealthcheckMonitorThreadsRunner implements Subscriber<UpstreamEvent> {
 	
 	@Value("${load.balancer.upstream.server.list}")
 	String upstream_list;
@@ -45,9 +48,18 @@ public class HealthcheckMonitorThreadsRunner {
 	@Value("${load.balancer.healthcheck.initial.delay}")
 	private String initialDelay; 
 	
+	@Value("${load.balancer.max.monitor.count}")
+	private String maxMonitorCount; 
+	
+	
 	private int count = 0; 
 	private ExecutorService service; 
+	
+	
+	boolean initiated=false;
 
+	private Subscription subscription; 
+	
 	public HealthcheckMonitorThreadsRunner() {}
 	
 	public int getCountOfupstream() {
@@ -55,50 +67,58 @@ public class HealthcheckMonitorThreadsRunner {
 	}
 	
 	public void addUpstream(String newUpstream) {
-		this.upstream_list = "," + newUpstream;
+		
+		AppHTTPUpstream upstream=null;
+		try {
+			upstream = new AppHTTPUpstream(newUpstream);
+		} catch (MalformedURLException e) {
+
+			e.printStackTrace();
+		} 
+		
+		APPHTTPUpstreamMonitor monitor = new APPHTTPUpstreamMonitor(this.map, upstream.getAddress().toString(),
+				this.endpoint, 
+				DataHelper.StringToInt(intervalS), 
+				DataHelper.StringToLong(timeout), 
+				DataHelper.StringToInt(initialDelay),
+				this.logger); 
+		
+		this.service.submit(monitor); 
+		logger.info("Health check monitor created for : "+upstream.getAddress().toString()); 
+		
 		count++;
-		reInitiate(); 
+		//reInitiate(); 
 	}
 	
+	
+	//not sure how to search for thread which is running monitor for specific upstream. Will not implement this for now. 
 	public void removeUpstream(String upstream) {
-		List<String> list =  Arrays.asList(this.upstream_list.split(",")).stream().filter(up ->{
-			return up.equalsIgnoreCase(upstream); 
-		}).collect(Collectors.toList()); 
-		
-		this.upstream_list = "";  
-		
-		
-		this.count=1; 
-		list.forEach(item->{
-			if(count==1) this.upstream_list+=item; 
-			else this.upstream_list=","+item;
-			count++; 
-		});
-		
-		reInitiate(); 
-		
+	
 	}
 	
 	//autoscalling
+	//Heavy lifting as halting all threads and creating new monitors for all upstreams
 	public void reInitiate() {
-		this.service.shutdownNow();
-		start(); 
+		//logger.info("Reintiating healthcheck monitors");
+		//this.service.shutdownNow();
+		//intiateMonitors(); 
 	}
 	
-	public void start() {
+	
+	private void intiateMonitors(){
 		try {
-			
 			List<AppHTTPUpstream> upstreams = getUpstreams(); 
-			int size = upstreams.size(); 
-			this.service = Executors.newFixedThreadPool(size);
-			this.map.action(Constants.INITIATE_HC_MAP, upstream_list, true);
+			int size = DataHelper.StringToInt(maxMonitorCount); 
 			
-			getUpstreams().stream().forEach(upstream->{
+			this.service = Executors.newFixedThreadPool(size);
+			if(!this.initiated) this.map.action(Constants.INITIATE_HC_MAP, upstream_list,true);
+			
+			upstreams.stream().forEach(upstream->{
 				try {
 					
+					//Action_Type, Upstream Address, Health --> default true
 					this.map.action(Constants.ADD_UPSTREAM, upstream.getAddress().toString(), true);
-					logger.info("Health check monitor created for : "+upstream.getAddress().toString()); 
-					//logger.info("MAP in Runner = "+this.map.hashCode());
+					
 					
 					APPHTTPUpstreamMonitor monitor = new APPHTTPUpstreamMonitor(this.map, upstream.getAddress().toString(),
 																				this.endpoint, 
@@ -108,27 +128,28 @@ public class HealthcheckMonitorThreadsRunner {
 																				this.logger); 
 					
 					this.service.submit(monitor); 
-					
-					
-					
-					//monitor.checker(); 
+					logger.info("Health check monitor created for : "+upstream.getAddress().toString()); 
 					
 				} catch (MapActionNotAvailable | UpstreamNotAvailable e) {
 					logger.error(e);
 				} 
 			});
-			
-			//logger.info("Current Upstream Status : "+ this.map.toString()); 
-
 		} catch (NoUpstreamAvailableException e) {
 			logger.error(e);
 		} catch (MapActionNotAvailable e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (UpstreamNotAvailable e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
+	}
+	
+	
+	
+	
+	public void start() {
+		intiateMonitors(); 
+		subscribeToPublisher();
+		this.initiated=true; 
 	}
 	
 	private List<AppHTTPUpstream> getUpstreams() throws NoUpstreamAvailableException {
@@ -136,6 +157,9 @@ public class HealthcheckMonitorThreadsRunner {
 			throw new NoUpstreamAvailableException(); 
 		}
 		this.count=1; 
+		
+		System.out.println(this.upstream_list); 
+		
 		List<AppHTTPUpstream> list =  Arrays.asList(( this.upstream_list.split(","))).stream().map(item->   {
 			try {
 				count++;
@@ -147,4 +171,51 @@ public class HealthcheckMonitorThreadsRunner {
 		}).collect(Collectors.toList());   
 		return list;
 	}
+
+	
+	/*Pub Sub logic Start*/
+	
+	private void subscribeToPublisher() {
+		if(!this.initiated)
+		{
+			this.map.getPublisher().subscribe(this);
+			
+		}
+	}
+	
+	@Override
+	public void onSubscribe(Subscription subscription) {
+		this.subscription = subscription;
+		//System.out.println("Subscribed");
+		subscription.request(2);
+	}
+
+	@Override
+	public void onNext(UpstreamEvent item) {
+		switch(item.getUpstreamEventType()) {
+			case UPSTREAM_ADDED: {
+				//System.out.println("Request Received");
+				this.addUpstream(item.getUpstream());
+				subscription.request(2);
+				break; 
+			}
+			case UPSTREAM_REMOVED:{
+				this.removeUpstream(item.getUpstream());
+				subscription.request(2);
+				break; 
+			}
+			default:{
+				break; 
+			}
+		}
+	}
+
+	@Override
+	public void onError(Throwable throwable) {
+		this.logger.error(throwable);
+	}
+
+	@Override
+	public void onComplete() {}
+	/*Pub Sub logic Start*/
 }
