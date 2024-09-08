@@ -1,25 +1,24 @@
-print_messages(){
+set -e
 
-echo "======================================"
-echo "Phase : $1"
-echo "======================================"
-
+print_message() {
+  echo "========================================"
+  echo "$1"
+  echo "========================================"
 }
 
-print_messages "Building jar file - In progress"
+print_message "Cleaning the project"
+mvn clean
 
-docker build -t jdk-17-load-balancer:latest .
-docker run --name test --rm  -v /target:/target jdk-17-load-balancer:test
+print_message "Compiling the project"
+mvn compile
 
-print_messages "Building jar file - Completed"
+print_message "Running tests"
+mvn test
 
-chmod -R 775 /target/app.jar
+print_message "Packaging the project"
+mvn package
 
-cp /target/app.jar ./builds/app.jar
+ls /load-balancer/target
 
-print_massages "Building runnnable image - In Progress"
-
-cd builds
-docker build -t load-balancer-app:$(app_version) .
-
-print_massages "Building runnnable image - Completed"
+chmod -R 777 /target
+cp /load-balancer/target/app-0.0.1-SNAPSHOT.jar /target/app.jar
