@@ -22,5 +22,4 @@ print_massages "Building runnnable image - In Progress"
 cd builds
 docker build -t load-balancer-app:$(app_version) .
 
-
 print_massages "Building runnnable image - Completed"
