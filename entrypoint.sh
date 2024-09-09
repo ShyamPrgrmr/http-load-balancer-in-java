@@ -7,7 +7,7 @@ print_message() {
 }
 
 print_message "Cleaning the project"
-mvn clean
+mvn clean install -U
 
 print_message "Compiling the project"
 mvn compile
