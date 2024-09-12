@@ -5,7 +5,11 @@ pipeline {
         stage('Use API Token') {
             steps {
                  sh "ls -ltd"
-		 bash "cd jenkins"
+		 sh '''
+  			#!/bin/bash
+			echo "$SHELL"
+
+		    '''
             }
         }
     }
