@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Use API Token') {
             steps {
-                        ls -ltd | echo
+                 sh "ls -ltd"
             }
         }
     }
