@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+
+
 
 
 environment=("test" "dev" "prod")

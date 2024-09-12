@@ -5,11 +5,9 @@ pipeline {
         stage('Use API Token') {
             steps {
                  sh "ls -ltd"
-		 sh '''
-  			#!/bin/bash
-			echo "$SHELL"
+		 sh '''echo "$SHELL"'''
 
-		    '''
+		
             }
         }
     }
