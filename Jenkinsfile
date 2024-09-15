@@ -2,13 +2,15 @@ pipeline {
     agent any
 
     stages {
-        stage('Use API Token') {
+        stage('build') {
             steps {
+		 sh "cd /var/jenkins_home/workspace/"
                  sh "ls -ltd"
 		 sh '''echo "$SHELL"'''
 
 		
             }
         }
+    
     }
 }
