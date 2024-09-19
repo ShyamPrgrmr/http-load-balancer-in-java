@@ -109,7 +109,10 @@ print_messages "Building application docker image - In Progress"
 cd builds
 echo "generated app.jar : "
 pwd
+echo "Directory : $workdir/builds"
 ls -ltr
+ls -ltr $workdir/builds
+
 
 docker build -t $repository/load-balancer-app-$version:latest .
 
