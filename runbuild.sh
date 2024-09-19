@@ -106,6 +106,10 @@ print_messages "Building jar file - Completed"
 
 print_messages "Building application docker image - In Progress"
 
+
+chmod -R 777 $workdir/builds
+
+whoami
 cd builds
 echo "generated app.jar : "
 pwd
