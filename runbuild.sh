@@ -87,24 +87,30 @@ echo "======================================"
 
 print_messages "Building jar file - In progress"
 
+workdir=$(pwd)
+echo "WORKDIR : $workdir"
+
+#mkdir target
+
 docker build -t load-balancer-app-builder-$version:latest .
-docker run --name test --rm  -v /target:/target load-balancer-app-builder-$version:latest
+docker run --name test --rm  -v $workdir/builds:/target load-balancer-app-builder-$version:latest
 
 print_messages "Building jar file - Completed"
 
-workdir=$(pwd)
-cd /target
+#cd /builds
+#echo "generated app.jar : "
+#ls -ltr
+#filepath="$workdir/builds/app.jar"
+#echo "Copying file from $PWD/app.jar to $filepath"
+#cp ./app.jar "$filepath"
+
+print_messages "Building application docker image - In Progress"
+
+cd /builds
 echo "generated app.jar : "
 ls -ltr
-filepath="$workdir/builds/app.jar"
-echo "Copying file from $PWD/app.jar to $filepath"
-cp ./app.jar "$filepath"
 
-print_messages "Building docker image - In Progress"
-
-cd "$workdir/builds"
-
-#docker build -t $repository/load-balancer-app-$version:latest .
+docker build -t $repository/load-balancer-app-$version:latest .
 
 print_messages "Building docker image - Completed"
 
@@ -125,7 +131,7 @@ docker rmi load-balancer-app-builder-$version:latest
 echo "Cleaning $repository/load-balancer-app-$version:latest image"
 docker rmi $repository/load-balancer-app-$version:latest
 
-print_message = "Cleaning -- Completed"
+print_messages "Cleaning -- Completed"
 
 
 
