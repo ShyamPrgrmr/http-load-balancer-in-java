@@ -106,8 +106,9 @@ print_messages "Building jar file - Completed"
 
 print_messages "Building application docker image - In Progress"
 
-cd /builds
+cd builds
 echo "generated app.jar : "
+pwd
 ls -ltr
 
 docker build -t $repository/load-balancer-app-$version:latest .
@@ -118,7 +119,7 @@ print_messages "Building docker image - Completed"
 print_messages "Pushing image into repository - In Progress"
 
 #docker login --username $user --password $password
-#docker push $repository/load-balancer-app:$version
+#docker push $repository/load-balancer-app-$version:latest
 
 print_messages "Pushing image into repository - Completed"
 
