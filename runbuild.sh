@@ -87,19 +87,38 @@ echo "======================================"
 
 print_messages "Building jar file - In progress"
 
-docker build -t load-balancer-app-builder:$version .
-docker run --name test --rm  -v /target:/target load-balancer-app-builder:$version
+workdir=$(pwd)
+echo "WORKDIR : $workdir"
+
+#mkdir target
+
+docker build -t load-balancer-app-builder-$version:latest .
+docker run --name test --rm  -v $workdir/builds:/target load-balancer-app-builder-$version:latest
 
 print_messages "Building jar file - Completed"
 
-chmod -R 775 /target/app.jar
+#cd /builds
+#echo "generated app.jar : "
+#ls -ltr
+#filepath="$workdir/builds/app.jar"
+#echo "Copying file from $PWD/app.jar to $filepath"
+#cp ./app.jar "$filepath"
 
-cp /target/app.jar ./builds/app.jar
+print_messages "Building application docker image - In Progress"
 
-print_messages "Building docker image - In Progress"
 
+chmod -R 777 $workdir/builds
+
+whoami
 cd builds
-#docker build -t $repository/load-balancer-app:$version .
+echo "generated app.jar : "
+pwd
+echo "Directory : $workdir/builds"
+ls -ltr
+ls -ltr $workdir/builds
+
+
+docker build -t $repository/load-balancer-app:latest .
 
 print_messages "Building docker image - Completed"
 
@@ -107,6 +126,22 @@ print_messages "Building docker image - Completed"
 print_messages "Pushing image into repository - In Progress"
 
 docker login --username $user --password $password
-#docker push $repository/load-balancer-app:$version
+docker push $repository/load-balancer-app:latest
 
 print_messages "Pushing image into repository - Completed"
+
+
+print_messages "Cleaning -- In Progress"
+
+echo "Cleaning load-balancer-app-builder-$version:latest image"
+docker rmi load-balancer-app-builder-$version:latest
+
+echo "Cleaning $repository/load-balancer-app-$version:latest image"
+docker rmi $repository/load-balancer-app:latest
+
+print_messages "Cleaning -- Completed"
+
+
+
+
+
