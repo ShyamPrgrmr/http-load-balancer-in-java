@@ -1,3 +1,4 @@
 ./runbuild.sh
 ./readme
 ./test.sh
+./builds/app.jar

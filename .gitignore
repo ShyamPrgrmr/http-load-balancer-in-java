@@ -5,7 +5,7 @@ target/
 !**/src/test/**/target/
 
 ./test.sh
-
+./builds/app.jar
 
 
 ### STS ###

@@ -1,3 +1,3 @@
-FROM openjdk:17-jdk-alpine
+FROM amazoncorretto:17.0.12-alpine3.17
 COPY app.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
