@@ -1,9 +1,6 @@
 #!/bin/bash
 
-
-
-
-environment=("test" "dev" "prod")
+environments=("test" "prod")
 
 while getopts v:u:p:r:e: flag
 do
@@ -60,7 +57,7 @@ function contains() {
     shift
     local array=("$@")
 
-    for item in "${environment[@]}"; do
+    for item in "${environments[@]}"; do
      if [[ "$item" == "$search" ]]; then
        return 0  
      fi
