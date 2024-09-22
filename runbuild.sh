@@ -89,6 +89,7 @@ echo "WORKDIR : $workdir"
 
 #Clearing docker cache
 echo "Clearing Docker Build Cache."
+echo "Y" | docker builder prune
 docker builder prune
 
 docker build -t load-balancer-app-builder-$version:latest .
