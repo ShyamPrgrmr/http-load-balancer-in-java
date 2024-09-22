@@ -135,8 +135,8 @@ print_messages "Cleaning -- In Progress"
 echo "Cleaning load-balancer-app-builder-$version:latest image"
 docker rmi load-balancer-app-builder-$version:latest
 
-echo "Cleaning $repository/load-balancer-app-$version:latest image"
-docker rmi $repository/load-balancer-app:latest
+#echo "Cleaning $repository/load-balancer-app-$version:latest image"
+#docker rmi $repository/load-balancer-app:latest
 
 print_messages "Cleaning -- Completed"
 
