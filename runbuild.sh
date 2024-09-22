@@ -118,7 +118,7 @@ ls -ltr
 ls -ltr $workdir/builds
 
 
-docker build -t $repository/load-balancer-app:latest .
+docker build -t $repository/load-balancer-app:$version .
 
 print_messages "Building docker image - Completed"
 
@@ -126,7 +126,7 @@ print_messages "Building docker image - Completed"
 print_messages "Pushing image into repository - In Progress"
 
 docker login --username $user --password $password
-docker push $repository/load-balancer-app:latest
+docker push $repository/load-balancer-app:$version
 
 print_messages "Pushing image into repository - Completed"
 
@@ -136,8 +136,8 @@ print_messages "Cleaning -- In Progress"
 echo "Cleaning load-balancer-app-builder-$version:latest image"
 docker rmi load-balancer-app-builder-$version:latest
 
-#echo "Cleaning $repository/load-balancer-app-$version:latest image"
-#docker rmi $repository/load-balancer-app:latest
+echo "Cleaning $repository/load-balancer-app-$version:latest image"
+docker rmi $repository/load-balancer-app:$version
 
 print_messages "Cleaning -- Completed"
 
