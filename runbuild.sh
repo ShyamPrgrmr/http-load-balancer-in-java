@@ -97,25 +97,21 @@ docker run --name test --rm  -v $workdir/builds:/target load-balancer-app-builde
 
 print_messages "Building jar file - Completed"
 
-#cd /builds
-#echo "generated app.jar : "
-#ls -ltr
-#filepath="$workdir/builds/app.jar"
-#echo "Copying file from $PWD/app.jar to $filepath"
-#cp ./app.jar "$filepath"
 
 print_messages "Building application docker image - In Progress"
 
 
 chmod -R 777 $workdir/builds
+chmod -R 777 $workdir/builds/app.jar
 
-whoami
-cd builds
-echo "generated app.jar : "
-pwd
-echo "Directory : $workdir/builds"
-ls -ltr
-ls -ltr $workdir/builds
+FILE="$workdir/builds/app.jar"
+
+if [ -f "$FILE" ]; then
+    echo "$FILE exists."
+else
+    echo "$FILE does not exist."
+    exit 0; 
+fi
 
 
 docker build -t $repository/load-balancer-app:$version .
