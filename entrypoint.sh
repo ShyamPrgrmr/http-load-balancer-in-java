@@ -27,6 +27,9 @@ cp /load-balancer/target/app-0.0.1-SNAPSHOT.jar /target/app.jar
 
 ls /target
 
-cp /load-balancer/target/ /target
 
-ls /target
+
+
+
+
+
