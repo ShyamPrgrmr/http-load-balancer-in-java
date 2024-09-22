@@ -121,7 +121,7 @@ else
     exit 0; 
 fi
 
-
+cd /builds
 docker build -t $repository/load-balancer-app:$version .
 
 print_messages "Building docker image - Completed"
