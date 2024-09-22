@@ -20,5 +20,13 @@ mvn package
 
 ls /load-balancer/target
 
+echo "Target folder of jenkins container :  "
+
 chmod -R 777 /target
 cp /load-balancer/target/app-0.0.1-SNAPSHOT.jar /target/app.jar
+
+ls /target
+
+cp /load-balancer/target/ /target
+
+ls /target
