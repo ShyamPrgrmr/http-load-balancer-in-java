@@ -93,7 +93,7 @@ echo "Y" | docker builder prune
 docker builder prune
 
 docker build -t load-balancer-app-builder-$version:latest .
-docker run --name test --rm  -v $workdir/builds:/target -v $workdir/app:/load-balancer  load-balancer-app-builder-$version:latest
+docker run --name test --rm  -v $workdir/builds:/target  load-balancer-app-builder-$version:latest
 
 
 print_messages "Building jar file - Completed"
