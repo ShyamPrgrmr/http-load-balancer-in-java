@@ -104,6 +104,10 @@ print_messages "Building application docker image - In Progress"
 echo "Printing $workdir/app files"
 ls -ltr $workdir/app
 
+USER = $(whoami)
+
+sudo chown $USER $workdir/builds/app.jar
+chmod 755 $workdir/builds/app.jar
 
 chmod -R 777 $workdir/builds
 chmod -R 777 $workdir/builds/app.jar
