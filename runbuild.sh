@@ -87,7 +87,8 @@ print_messages "Building jar file - In progress"
 workdir=$(pwd)
 echo "WORKDIR : $workdir"
 
-#Clearing cache
+#Clearing docker cache
+echo "Clearing Docker Build Cache."
 docker builder prune
 
 docker build -t load-balancer-app-builder-$version:latest .
