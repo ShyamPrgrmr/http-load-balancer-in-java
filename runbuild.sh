@@ -132,8 +132,8 @@ print_messages "Building docker image - Completed"
 
 print_messages "Pushing image into repository - In Progress"
 
-#docker login --username $user --password $password
-#docker push $repository/load-balancer-app:$version
+docker login --username $user --password $password
+docker push $repository/load-balancer-app:$version
 
 print_messages "Pushing image into repository - Completed"
 
