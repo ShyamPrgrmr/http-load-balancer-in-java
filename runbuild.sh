@@ -109,8 +109,8 @@ USER = $(whoami)
 sudo chown $USER $workdir/builds/app.jar
 chmod 755 $workdir/builds/app.jar
 
-chmod -R 777 $workdir/builds
-chmod -R 777 $workdir/builds/app.jar
+#chmod -R 777 $workdir/builds
+#chmod -R 777 $workdir/builds/app.jar
 
 FILE="$workdir/builds/app.jar"
 
@@ -121,7 +121,10 @@ else
     exit 0; 
 fi
 
-cd /builds
+ls -ltr
+ls -ltr $workdir/builds
+
+cd $workdir/builds
 docker build -t $repository/load-balancer-app:$version .
 
 print_messages "Building docker image - Completed"
@@ -129,8 +132,8 @@ print_messages "Building docker image - Completed"
 
 print_messages "Pushing image into repository - In Progress"
 
-docker login --username $user --password $password
-docker push $repository/load-balancer-app:$version
+#docker login --username $user --password $password
+#docker push $repository/load-balancer-app:$version
 
 print_messages "Pushing image into repository - Completed"
 
